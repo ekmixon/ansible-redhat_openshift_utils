@@ -186,7 +186,7 @@ class Yedit(object):  # pragma: no cover
         self.content_type = content_type
         self.backup = backup
         if backup_ext is None:
-            self.backup_ext = ".{}".format(time.strftime("%Y%m%dT%H%M%S"))
+            self.backup_ext = f'.{time.strftime("%Y%m%dT%H%M%S")}'
         else:
             self.backup_ext = backup_ext
 
@@ -217,17 +217,16 @@ class Yedit(object):  # pragma: no cover
     @staticmethod
     def parse_key(key, sep='.'):
         '''parse the key allowing the appropriate separator'''
-        common_separators = list(Yedit.com_sep - set([sep]))
+        common_separators = list(Yedit.com_sep - {sep})
         return re.findall(Yedit.re_key.format(''.join(common_separators)), key)
 
     @staticmethod
     def valid_key(key, sep='.'):
         '''validate the incoming key'''
-        common_separators = list(Yedit.com_sep - set([sep]))
-        if not re.match(Yedit.re_valid_key.format(''.join(common_separators)), key):
-            return False
-
-        return True
+        common_separators = list(Yedit.com_sep - {sep})
+        return bool(
+            re.match(Yedit.re_valid_key.format(''.join(common_separators)), key)
+        )
 
     # pylint: disable=too-many-return-statements,too-many-branches
     @staticmethod
@@ -237,7 +236,10 @@ class Yedit(object):  # pragma: no cover
             if value is not None:
                 data.pop(value)
             elif index is not None:
-                raise YeditException("remove_entry for a dictionary does not have an index {}".format(index))
+                raise YeditException(
+                    f"remove_entry for a dictionary does not have an index {index}"
+                )
+
             else:
                 data.clear()
 
@@ -261,7 +263,7 @@ class Yedit(object):  # pragma: no cover
             return True
 
         if not (key and Yedit.valid_key(key, sep)) and \
-           isinstance(data, (list, dict)):
+               isinstance(data, (list, dict)):
             return None
 
         key_indexes = Yedit.parse_key(key, sep)
@@ -308,8 +310,13 @@ class Yedit(object):  # pragma: no cover
                     continue
 
                 elif data and not isinstance(data, dict):
-                    raise YeditException("Unexpected item type found while going through key " +
-                                         "path: {} (at key: {})".format(key, dict_key))
+                    raise YeditException(
+                        (
+                            "Unexpected item type found while going through key "
+                            + f"path: {key} (at key: {dict_key})"
+                        )
+                    )
+
 
                 data[dict_key] = {}
                 data = data[dict_key]
@@ -318,25 +325,22 @@ class Yedit(object):  # pragma: no cover
                   int(arr_ind) <= len(data) - 1):
                 data = data[int(arr_ind)]
             else:
-                raise YeditException("Unexpected item type found while going through key path: {}".format(key))
+                raise YeditException(
+                    f"Unexpected item type found while going through key path: {key}"
+                )
+
 
         if key == '':
             data = item
 
-        # process last index for add
-        # expected list entry
         elif key_indexes[-1][0] and isinstance(data, list) and int(key_indexes[-1][0]) <= len(data) - 1:  # noqa: E501
             data[int(key_indexes[-1][0])] = item
 
-        # expected dict entry
         elif key_indexes[-1][1] and isinstance(data, dict):
             data[key_indexes[-1][1]] = item
 
-        # didn't add/update to an existing list, nor add/update key to a dict
-        # so we must have been provided some syntax like a.b.c[<int>] = "data" for a
-        # non-existent array
         else:
-            raise YeditException("Error adding to object at path: {}".format(key))
+            raise YeditException(f"Error adding to object at path: {key}")
 
         return data
 
@@ -369,7 +373,7 @@ class Yedit(object):  # pragma: no cover
     def _write(filename, contents):
         ''' Actually write the file contents to disk. This helps with mocking. '''
 
-        tmp_filename = filename + '.yedit'
+        tmp_filename = f'{filename}.yedit'
 
         with open(tmp_filename, 'w') as yfd:
             fcntl.flock(yfd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -384,7 +388,7 @@ class Yedit(object):  # pragma: no cover
             raise YeditException('Please specify a filename.')
 
         if self.backup and self.file_exists():
-            shutil.copy(self.filename, '{}{}'.format(self.filename, self.backup_ext))
+            shutil.copy(self.filename, f'{self.filename}{self.backup_ext}')
 
         # Try to set format attributes if supported
         try:
@@ -401,8 +405,13 @@ class Yedit(object):  # pragma: no cover
         elif self.content_type == 'json':
             Yedit._write(self.filename, json.dumps(self.yaml_dict, indent=4, sort_keys=True))
         else:
-            raise YeditException('Unsupported content_type: {}.'.format(self.content_type) +
-                                 'Please specify a content_type of yaml or json.')
+            raise YeditException(
+                (
+                    f'Unsupported content_type: {self.content_type}.'
+                    + 'Please specify a content_type of yaml or json.'
+                )
+            )
+
 
         return (True, self.yaml_dict)
 
@@ -420,10 +429,7 @@ class Yedit(object):  # pragma: no cover
 
     def file_exists(self):
         ''' return whether file exists '''
-        if os.path.exists(self.filename):
-            return True
-
-        return False
+        return bool(os.path.exists(self.filename))
 
     def load(self, content_type='yaml'):
         ''' return yaml file '''
@@ -464,7 +470,7 @@ class Yedit(object):  # pragma: no cover
                 self.yaml_dict = json.loads(contents)
         except yaml.YAMLError as err:
             # Error loading yaml or json
-            raise YeditException('Problem with loading yaml file. {}'.format(err))
+            raise YeditException(f'Problem with loading yaml file. {err}')
 
         return self.yaml_dict
 
@@ -520,10 +526,7 @@ class Yedit(object):  # pragma: no cover
             return (False, self.yaml_dict)
 
         result = Yedit.remove_entry(self.yaml_dict, path, index, value, self.separator)
-        if not result:
-            return (False, self.yaml_dict)
-
-        return (True, self.yaml_dict)
+        return (True, self.yaml_dict) if result else (False, self.yaml_dict)
 
     def exists(self, path, value):
         ''' check if value exists at path'''
@@ -533,19 +536,11 @@ class Yedit(object):  # pragma: no cover
             entry = None
 
         if isinstance(entry, list):
-            if value in entry:
-                return True
-            return False
-
+            return value in entry
         elif isinstance(entry, dict):
             if isinstance(value, dict):
                 rval = False
-                for key, val in value.items():
-                    if entry[key] != val:
-                        rval = False
-                        break
-                else:
-                    rval = True
+                rval = next((False for key, val in value.items() if entry[key] != val), True)
                 return rval
 
             return value in entry
@@ -583,8 +578,13 @@ class Yedit(object):  # pragma: no cover
             # AUDIT:maybe-no-member makes sense due to fuzzy types
             # pylint: disable=maybe-no-member
             if not isinstance(value, dict):
-                raise YeditException('Cannot replace key, value entry in dict with non-dict type. ' +
-                                     'value=[{}] type=[{}]'.format(value, type(value)))
+                raise YeditException(
+                    (
+                        'Cannot replace key, value entry in dict with non-dict type. '
+                        + f'value=[{value}] type=[{type(value)}]'
+                    )
+                )
+
 
             entry.update(value)
             return (True, self.yaml_dict)
@@ -652,7 +652,7 @@ class Yedit(object):  # pragma: no cover
         # "" refers to the root of the document
         # Only update the root path (entire document) when its a list or dict
         if path == '':
-            if isinstance(result, list) or isinstance(result, dict):
+            if isinstance(result, (list, dict)):
                 self.yaml_dict = result
                 return (True, self.yaml_dict)
 
@@ -704,29 +704,34 @@ class Yedit(object):  # pragma: no cover
     @staticmethod
     def parse_value(inc_value, vtype=''):
         '''determine value type passed'''
-        true_bools = ['y', 'Y', 'yes', 'Yes', 'YES', 'true', 'True', 'TRUE',
-                      'on', 'On', 'ON', ]
-        false_bools = ['n', 'N', 'no', 'No', 'NO', 'false', 'False', 'FALSE',
-                       'off', 'Off', 'OFF']
-
         # It came in as a string but you didn't specify value_type as string
         # we will convert to bool if it matches any of the above cases
         if isinstance(inc_value, str) and 'bool' in vtype:
+            true_bools = ['y', 'Y', 'yes', 'Yes', 'YES', 'true', 'True', 'TRUE',
+                          'on', 'On', 'ON', ]
+            false_bools = ['n', 'N', 'no', 'No', 'NO', 'false', 'False', 'FALSE',
+                           'off', 'Off', 'OFF']
+
             if inc_value not in true_bools and inc_value not in false_bools:
-                raise YeditException('Not a boolean type. str=[{}] vtype=[{}]'.format(inc_value, vtype))
+                raise YeditException(f'Not a boolean type. str=[{inc_value}] vtype=[{vtype}]')
         elif isinstance(inc_value, bool) and 'str' in vtype:
             inc_value = str(inc_value)
 
         # There is a special case where '' will turn into None after yaml loading it so skip
-        if isinstance(inc_value, str) and inc_value == '':
-            pass
-        # If vtype is not str then go ahead and attempt to yaml load it.
-        elif isinstance(inc_value, str) and 'str' not in vtype:
-            try:
-                inc_value = yaml.safe_load(inc_value)
-            except Exception:
-                raise YeditException('Could not determine type of incoming value. ' +
-                                     'value=[{}] vtype=[{}]'.format(type(inc_value), vtype))
+        if isinstance(inc_value, str):
+            if inc_value == '':
+                pass
+            elif 'str' not in vtype:
+                try:
+                    inc_value = yaml.safe_load(inc_value)
+                except Exception:
+                    raise YeditException(
+                        (
+                            'Could not determine type of incoming value. '
+                            + f'value=[{type(inc_value)}] vtype=[{vtype}]'
+                        )
+                    )
+
 
         return inc_value
 
@@ -774,9 +779,14 @@ class Yedit(object):  # pragma: no cover
             rval = yamlfile.load()
 
             if yamlfile.yaml_dict is None and state != 'present':
-                return {'failed': True,
-                        'msg': 'Error opening file [{}].  Verify that the '.format(params['src']) +
-                               'file exists, that it is has correct permissions, and is valid yaml.'}
+                return {
+                    'failed': True,
+                    'msg': (
+                        f"Error opening file [{params['src']}].  Verify that the "
+                        + 'file exists, that it is has correct permissions, and is valid yaml.'
+                    ),
+                }
+
 
         if state == 'list':
             if params['content']:
@@ -810,7 +820,7 @@ class Yedit(object):  # pragma: no cover
 
                 # We had no edits to make and the contents are the same
                 if yamlfile.yaml_dict == content and \
-                   params['value'] is None:
+                       params['value'] is None:
                     return {'changed': False, 'module_results': yamlfile.yaml_dict, 'state': state}
 
                 yamlfile.yaml_dict = content
@@ -921,17 +931,14 @@ class OpenShiftCLI(object):
         if not res['results']:
             return res
 
-        fname = Utils.create_tmpfile(rname + '-')
+        fname = Utils.create_tmpfile(f'{rname}-')
 
         yed = Yedit(fname, res['results'][0], separator=sep)
         updated = False
 
         if content is not None:
-            changes = []
-            for key, value in content.items():
-                changes.append(yed.put(key, value))
-
-            if any([change[0] for change in changes]):
+            changes = [yed.put(key, value) for key, value in content.items()]
+            if any(change[0] for change in changes):
                 updated = True
 
         elif edits is not None:
@@ -959,14 +966,12 @@ class OpenShiftCLI(object):
 
         cmd = ['replace', '-f', fname]
         if force:
-            cmd.append('--force')
-            cmd.append('--cascade')
-            cmd.append('--grace-period=0')
+            cmd.extend(('--force', '--cascade', '--grace-period=0'))
         return self.openshift_cmd(cmd)
 
     def _create_from_content(self, rname, content):
         '''create a temporary file and then call oc create on it'''
-        fname = Utils.create_tmpfile(rname + '-')
+        fname = Utils.create_tmpfile(f'{rname}-')
         yed = Yedit(fname, content=content)
         yed.write()
 
@@ -982,7 +987,7 @@ class OpenShiftCLI(object):
         '''call oc delete on a resource'''
         cmd = ['delete', resource]
         if selector is not None:
-            cmd.append('--selector={}'.format(selector))
+            cmd.append(f'--selector={selector}')
         elif name is not None:
             cmd.append(name)
         else:
@@ -990,7 +995,7 @@ class OpenShiftCLI(object):
 
         return self.openshift_cmd(cmd)
 
-    def _process(self, template_name, create=False, params=None, template_data=None):  # noqa: E501
+    def _process(self, template_name, create=False, params=None, template_data=None):    # noqa: E501
         '''process a template
 
            template_name: the name of the template to process
@@ -1013,7 +1018,7 @@ class OpenShiftCLI(object):
         if results['returncode'] != 0 or not create:
             return results
 
-        fname = Utils.create_tmpfile(template_name + '-')
+        fname = Utils.create_tmpfile(f'{template_name}-')
         yed = Yedit(fname, results['results'])
         yed.write()
 
@@ -1026,10 +1031,10 @@ class OpenShiftCLI(object):
         cmd = ['get', resource]
 
         if selector is not None:
-            cmd.append('--selector={}'.format(selector))
+            cmd.append(f'--selector={selector}')
 
         if field_selector is not None:
-            cmd.append('--field-selector={}'.format(field_selector))
+            cmd.append(f'--field-selector={field_selector}')
 
         # Name cannot be used with selector or field_selector.
         if selector is None and field_selector is None and name is not None:
@@ -1053,9 +1058,9 @@ class OpenShiftCLI(object):
         if node:
             cmd.extend(node)
         else:
-            cmd.append('--selector={}'.format(selector))
+            cmd.append(f'--selector={selector}')
 
-        cmd.append('--schedulable={}'.format(schedulable))
+        cmd.append(f'--schedulable={schedulable}')
 
         return self.openshift_cmd(cmd, oadm=True, output=True, output_type='raw')  # noqa: E501
 
@@ -1070,10 +1075,10 @@ class OpenShiftCLI(object):
         if node:
             cmd.extend(node)
         else:
-            cmd.append('--selector={}'.format(selector))
+            cmd.append(f'--selector={selector}')
 
         if pod_selector:
-            cmd.append('--pod-selector={}'.format(pod_selector))
+            cmd.append(f'--pod-selector={pod_selector}')
 
         cmd.extend(['--list-pods', '-o', 'json'])
 
@@ -1086,16 +1091,16 @@ class OpenShiftCLI(object):
         if node:
             cmd.extend(node)
         else:
-            cmd.append('--selector={}'.format(selector))
+            cmd.append(f'--selector={selector}')
 
         if dry_run:
             cmd.append('--dry-run')
 
         if pod_selector:
-            cmd.append('--pod-selector={}'.format(pod_selector))
+            cmd.append(f'--pod-selector={pod_selector}')
 
         if grace_period:
-            cmd.append('--grace-period={}'.format(int(grace_period)))
+            cmd.append(f'--grace-period={int(grace_period)}')
 
         if force:
             cmd.append('--force')
@@ -1110,20 +1115,15 @@ class OpenShiftCLI(object):
 
     def _import_image(self, url=None, name=None, tag=None):
         ''' perform image import '''
-        cmd = ['import-image']
-
         image = '{0}'.format(name)
         if tag:
             image += ':{0}'.format(tag)
 
-        cmd.append(image)
-
+        cmd = ['import-image', image]
         if url:
             cmd.append('--from={0}/{1}'.format(url, image))
 
-        cmd.append('-n{0}'.format(self.namespace))
-
-        cmd.append('--confirm')
+        cmd.extend(('-n{0}'.format(self.namespace), '--confirm'))
         return self.openshift_cmd(cmd)
 
     def _run(self, cmds, input_data):
@@ -1161,7 +1161,12 @@ class OpenShiftCLI(object):
         try:
             returncode, stdout, stderr = self._run(cmds, input_data)
         except OSError as ex:
-            returncode, stdout, stderr = 1, '', 'Failed to execute {}: {}'.format(subprocess.list2cmdline(cmds), ex)
+            returncode, stdout, stderr = (
+                1,
+                '',
+                f'Failed to execute {subprocess.list2cmdline(cmds)}: {ex}',
+            )
+
 
         rval = {"returncode": returncode,
                 "cmd": ' '.join(cmds)}
@@ -1182,8 +1187,8 @@ class OpenShiftCLI(object):
             print("STDERR: {0}".format(stderr))
 
         if 'err' in rval or returncode != 0:
-            rval.update({"stderr": stderr,
-                         "stdout": stdout})
+            rval |= {"stderr": stderr, "stdout": stdout}
+
 
         return rval
 
@@ -1266,24 +1271,19 @@ class Utils(object):  # pragma: no cover
     @staticmethod
     def exists(results, _name):
         ''' Check to see if the results include the name '''
-        if not results:
-            return False
-
-        if Utils.find_result(results, _name):
-            return True
-
-        return False
+        return bool(Utils.find_result(results, _name)) if results else False
 
     @staticmethod
     def find_result(results, _name):
         ''' Find the specified result by name'''
-        rval = None
-        for result in results:
-            if 'metadata' in result and result['metadata']['name'] == _name:
-                rval = result
-                break
-
-        return rval
+        return next(
+            (
+                result
+                for result in results
+                if 'metadata' in result and result['metadata']['name'] == _name
+            ),
+            None,
+        )
 
     @staticmethod
     def get_resource_file(sfile, sfile_type='yaml'):
@@ -1338,9 +1338,9 @@ class Utils(object):  # pragma: no cover
 
             if version.startswith('v'):
                 version = version[1:]  # Remove the 'v' prefix
-                versions_dict[tech + '_numeric'] = version.split('+')[0]
+                versions_dict[f'{tech}_numeric'] = version.split('+')[0]
                 # "3.3.0.33" is what we have, we want "3.3"
-                versions_dict[tech + '_short'] = "{}.{}".format(*version.split('.'))
+                versions_dict[f'{tech}_short'] = "{}.{}".format(*version.split('.'))
 
         return versions_dict
 
@@ -1373,21 +1373,21 @@ class Utils(object):  # pragma: no cover
             if isinstance(value, list):
                 if key not in user_def:
                     if debug:
-                        print('User data does not have key [%s]' % key)
-                        print('User data: %s' % user_def)
+                        print(f'User data does not have key [{key}]')
+                        print(f'User data: {user_def}')
                     return False
 
                 if not isinstance(user_def[key], list):
                     if debug:
-                        print('user_def[key] is not a list key=[%s] user_def[key]=%s' % (key, user_def[key]))
+                        print(f'user_def[key] is not a list key=[{key}] user_def[key]={user_def[key]}')
                     return False
 
                 if len(user_def[key]) != len(value):
                     if debug:
                         print("List lengths are not equal.")
-                        print("key=[%s]: user_def[%s] != value[%s]" % (key, len(user_def[key]), len(value)))
-                        print("user_def: %s" % user_def[key])
-                        print("value: %s" % value)
+                        print(f"key=[{key}]: user_def[{len(user_def[key])}] != value[{len(value)}]")
+                        print(f"user_def: {user_def[key]}")
+                        print(f"value: {value}")
                     return False
 
                 for values in zip(user_def[key], value):
@@ -1408,11 +1408,10 @@ class Utils(object):  # pragma: no cover
                             print(value)
                         return False
 
-            # recurse on a dictionary
             elif isinstance(value, dict):
                 if key not in user_def:
                     if debug:
-                        print("user_def does not have key [%s]" % key)
+                        print(f"user_def does not have key [{key}]")
                     return False
                 if not isinstance(user_def[key], dict):
                     if debug:
@@ -1436,16 +1435,14 @@ class Utils(object):  # pragma: no cover
                         print(result)
                     return False
 
-            # Verify each key, value pair is the same
-            else:
-                if key not in user_def or value != user_def[key]:
-                    if debug:
-                        print("value not equal; user_def does not have key")
-                        print(key)
-                        print(value)
-                        if key in user_def:
-                            print(user_def[key])
-                    return False
+            elif key not in user_def or value != user_def[key]:
+                if debug:
+                    print("value not equal; user_def does not have key")
+                    print(key)
+                    print(value)
+                    if key in user_def:
+                        print(user_def[key])
+                return False
 
         if debug:
             print('returning true')
@@ -1480,12 +1477,12 @@ class OpenShiftCLIConfig(object):
         for key in sorted(self.config_options.keys()):
             data = self.config_options[key]
             if data['include'] \
-               and (data['value'] is not None or isinstance(data['value'], int)):
+                   and (data['value'] is not None or isinstance(data['value'], int)):
                 if key == ascommalist:
-                    val = ','.join(['{}={}'.format(kk, vv) for kk, vv in sorted(data['value'].items())])
+                    val = ','.join([f'{kk}={vv}' for kk, vv in sorted(data['value'].items())])
                 else:
                     val = data['value']
-                rval.append('--{}={}'.format(key.replace('_', '-'), val))
+                rval.append(f"--{key.replace('_', '-')}={val}")
 
         return rval
 
@@ -1520,8 +1517,11 @@ class OCObject(OpenShiftCLI):
     def get(self):
         '''return a kind by name '''
         results = self._get(self.kind, name=self.name, selector=self.selector, field_selector=self.field_selector)
-        if (results['returncode'] != 0 and 'stderr' in results and
-                '\"{}\" not found'.format(self.name) in results['stderr']):
+        if (
+            results['returncode'] != 0
+            and 'stderr' in results
+            and f'\"{self.name}\" not found' in results['stderr']
+        ):
             results['returncode'] = 0
 
         return results
@@ -1529,8 +1529,11 @@ class OCObject(OpenShiftCLI):
     def delete(self):
         '''delete the object'''
         results = self._delete(self.kind, name=self.name, selector=self.selector)
-        if (results['returncode'] != 0 and 'stderr' in results and
-                '\"{}\" not found'.format(self.name) in results['stderr']):
+        if (
+            results['returncode'] != 0
+            and 'stderr' in results
+            and f'\"{self.name}\" not found' in results['stderr']
+        ):
             results['returncode'] = 0
 
         return results
@@ -1630,9 +1633,9 @@ class OCObject(OpenShiftCLI):
             # verify it's not in our results
             # pylint: disable=too-many-boolean-expressions
             if (params['name'] is not None or params['selector'] is not None) and \
-               (len(api_rval['results']) == 0 or \
-               (not api_rval['results'][0]) or \
-               ('items' in api_rval['results'][0] and len(api_rval['results'][0]['items']) == 0)):
+                   (len(api_rval['results']) == 0 or \
+                   (not api_rval['results'][0]) or \
+                   ('items' in api_rval['results'][0] and len(api_rval['results'][0]['items']) == 0)):
                 return {'changed': False, 'state': state}
 
             if check_mode:

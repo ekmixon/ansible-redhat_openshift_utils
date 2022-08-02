@@ -86,8 +86,7 @@ def get_valid_nodes(module, oc_exec, exclude_node):
         if fields[0] != exclude_node and fields[1] == "Ready":
             valid_nodes.append(fields[0])
     if not valid_nodes:
-        fail(module,
-             'Unable to find suitable node in get nodes output: {}'.format(res))
+        fail(module, f'Unable to find suitable node in get nodes output: {res}')
     return valid_nodes
 
 
@@ -98,21 +97,23 @@ def select_pod(module, oc_exec, cluster_name, valid_nodes):
     # res is returned as a tab/space-separated list with headers.
     res_lines = res.split('\n')
     pod_name = None
-    name_search = 'glusterfs-{}'.format(cluster_name)
+    name_search = f'glusterfs-{cluster_name}'
     res_lines = list(filter(None, res.split('\n')))
 
     for line in res_lines[1:]:
         fields = line.split()
         if not fields:
             continue
-        if name_search in fields[0]:
-            if fields[2] == "Running" and fields[6] in valid_nodes:
-                pod_name = fields[0]
-                break
+        if (
+            name_search in fields[0]
+            and fields[2] == "Running"
+            and fields[6] in valid_nodes
+        ):
+            pod_name = fields[0]
+            break
 
     if pod_name is None:
-        fail(module,
-             "Unable to find suitable pod in get pods output: {}".format(res))
+        fail(module, f"Unable to find suitable pod in get pods output: {res}")
     else:
         return pod_name
 
@@ -136,7 +137,7 @@ def check_volume_health_info(module, oc_exec, pod_name, volume):
         if line.startswith('Number of entries:'):
             cols = line.split(':')
             if cols[1].strip() != '0':
-                fail(module, 'volume {} is not ready'.format(volume))
+                fail(module, f'volume {volume} is not ready')
 
 
 def check_volumes(module, oc_exec, pod_name):
@@ -160,8 +161,8 @@ def run_module():
         argument_spec=module_args
     )
     oc_bin = module.params['oc_bin']
-    oc_conf = '--config={}'.format(module.params['oc_conf'])
-    oc_namespace = '--namespace={}'.format(module.params['oc_namespace'])
+    oc_conf = f"--config={module.params['oc_conf']}"
+    oc_namespace = f"--namespace={module.params['oc_namespace']}"
     cluster_name = module.params['cluster_name']
     exclude_node = module.params['exclude_node']
 
